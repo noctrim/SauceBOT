@@ -10,7 +10,10 @@ emoji_mapping = {
     "Apex": "Apex",
     "WorldOfWarcraft": "WoW",
     "Overwatch": "Overwatch",
-    "LeagueOfLegends": "League"
+    "LeagueOfLegends": "League",
+    "Catan": "Catan",
+    "Fortnite": "Fortnite",
+    "Warzone": "Warzone"
 }
 
 @client.event
