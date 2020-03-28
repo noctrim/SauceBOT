@@ -4,7 +4,7 @@ import os
 TOKEN = os.environ["DISCORD_TOKEN"]
 
 client = discord.Client()
-message_id = 693534132621279307
+message_id = 693574555352170596
 
 emoji_mapping = {
     "Apex": "Apex",
