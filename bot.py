@@ -3,10 +3,15 @@ import discord
 import os
 import random
 import re
+import requests
+import pyimgur
 
 TOKEN = os.environ["DISCORD_TOKEN"]
+IMGUR_CLIENT_ID = os.environ["IMGUR_CLIENT_ID"]
+IMGUR_ALBUM_ID = "XNDQTsC"
 
 client = discord.Client()
+imgur = pyimgur.Imgur(IMGUR_CLIENT_ID)
 
 class Emoji(object):
     def __init__(self, text):
@@ -91,10 +96,19 @@ async def on_ready():
     print(client.user.id)
     print('------')
 
+def download_file(url, name='tmp.jpg'):
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        print("Response Recieved. Downloading File: {0}".format(url))
+        with open(name, 'wb') as f:
+            f.write(resp.content)
+            f.close()
+            return name
+    else:
+        print("Error Code: {0} Downloading File: {1}".format(resp.status_code, url)) 
 
 SAUCE_KEYWORDS = ["game", "play"]
 SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
-RESOURCE_DIR = "res/"
 
 @client.event
 async def on_message(message):
@@ -104,9 +118,13 @@ async def on_message(message):
     text_lower = message.content.lower()
     if any(x in text_lower for x in SAUCE_KEYWORDS):
         msg = "Bork! BORK! {0}".format(random.choice(SAUCE_OPTIONS))
-        name = random.choice(os.listdir(RESOURCE_DIR))
-        file = discord.File("{0}{1}".format(RESOURCE_DIR, name))
-        await message.channel.send(msg, file=file)
+        album = imgur.get_album(IMGUR_ALBUM_ID)
+        image = random.choice(album.images)
+        path = download_file(image.link)
+        if path:
+            file = discord.File(path)
+            await message.channel.send(msg, file=file)
+            os.remove(path)
 
 
 """
