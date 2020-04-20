@@ -95,6 +95,8 @@ async def on_ready():
     print(client.user.name)
     print(client.user.id)
     print('------')
+    game = discord.Game("Fetch!")
+    await client.change_presence(status=discord.Status.idle, activity=game)
 
 def download_file(url, name='tmp.jpg'):
     resp = requests.get(url)
