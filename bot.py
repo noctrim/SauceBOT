@@ -1,44 +1,17 @@
-
 import discord
 import os
 import random
 import re
-import requests
-import pyimgur
+import time
+
+from src.emoji import Emoji
+from src.imgur import ImgurBehavior
 
 TOKEN = os.environ["DISCORD_TOKEN"]
-IMGUR_CLIENT_ID = os.environ["IMGUR_CLIENT_ID"]
-IMGUR_ALBUM_ID = "XNDQTsC"
 
 client = discord.Client()
-imgur = pyimgur.Imgur(IMGUR_CLIENT_ID)
+imgur = ImgurBehavior()
 
-class Emoji(object):
-    def __init__(self, text):
-        r = re.match(r'(?:\<:([^:]+):([0-9]+)\>)', text)
-        if not r:
-            self.value = text
-            return
-        emojis = list(filter(lambda e: str(e.id) == r.group(2), client.emojis))
-        self.value = emojis[0].name
-
-def get_mapping(text):
-    mapping = {}
-    r = re.search(r'\[([\s\S]*)\]', text)
-    if not r:
-        return mapping
-    input_map = r.group(1).strip()
-    for line in input_map.splitlines():
-        try:
-            emoji, role = line.split("-")
-            role = role.strip()
-            if not any([emoji, role]):
-                break
-            emoji = Emoji(emoji.strip())
-            mapping[emoji.value] = role
-        except Exception as e:
-            break
-    return mapping
 
 @client.event
 async def on_raw_reaction_add(payload):
@@ -53,7 +26,7 @@ async def on_raw_reaction_add(payload):
         _, text = msg.content.split("!role-select")
         text = text.strip()
 
-        mapping = get_mapping(text)
+        mapping = Emoji.get_mapping(text, client.emojis)
         role_name = mapping.get(payload.emoji.name, None)
         guild = discord.utils.find(lambda g: g.id == payload.guild_id, client.guilds)
         role = discord.utils.get(guild.roles, name=role_name)
@@ -79,7 +52,7 @@ async def on_raw_reaction_remove(payload):
         _, text = msg.content.split("!role-select")
         text = text.strip()
 
-        mapping = get_mapping(text)
+        mapping = Emoji.get_mapping(text, client.emojis)
         role_name = mapping.get(payload.emoji.name, None)
         guild = discord.utils.find(lambda g: g.id == payload.guild_id, client.guilds)
         role = discord.utils.get(guild.roles, name=role_name)
@@ -98,42 +71,43 @@ async def on_ready():
     game = discord.Game("Fetch!")
     await client.change_presence(status=discord.Status.idle, activity=game)
 
-def download_file(url, name='tmp.jpg'):
-    resp = requests.get(url)
-    if resp.status_code == 200:
-        print("Response Recieved. Downloading File: {0}".format(url))
-        with open(name, 'wb') as f:
-            f.write(resp.content)
-            f.close()
-            return name
-    else:
-        print("Error Code: {0} Downloading File: {1}".format(resp.status_code, url)) 
 
 SAUCE_KEYWORDS = ["game", "play"]
 SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
 
+class Timer:
+    def __init__(self, mins):
+        self.mins = mins
+        self.timeout = 0
+
+    def start(self):
+        self.timeout = time.time() + self.mins * 60
+
+    def is_active(self):
+        return time.time() < self.timeout
+
+timer = Timer(30)
+
 @client.event
 async def on_message(message):
     # we do not want the bot to reply to itself
-    if message.author == client.user:
+    if message.author == client.user or message.author.bot:
         return
     text_lower = message.content.lower()
-    if any(x in text_lower for x in SAUCE_KEYWORDS):
+    if "sauce stop" in text_lower:
+        timer.start()
+    if timer.is_active():
+        return
+    r = r'(^|.)({0})'.format('|'.join(SAUCE_KEYWORDS))
+    if any([c != "!" for c, v in re.findall(r, text_lower)]):
         msg = "Bork! BORK! {0}".format(random.choice(SAUCE_OPTIONS))
-        album = imgur.get_album(IMGUR_ALBUM_ID)
+        album = imgur.get_album()
         image = random.choice(album.images)
-        path = download_file(image.link)
+        path = imgur.download_file(image.link)
         if path:
             file = discord.File(path)
             await message.channel.send(msg, file=file)
             os.remove(path)
 
 
-"""
-@client.event
-async def on_member_join(member):
-    server = member.guild
-    channel = server.system_channel
-    await channel.send("Welcome {0}!".format(member.mention))
-"""
 client.run(TOKEN)
