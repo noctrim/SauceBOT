@@ -6,6 +6,7 @@ import time
 
 from src.emoji import Emoji
 from src.imgur import ImgurBehavior
+from src.timer import Timer
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 
@@ -75,17 +76,6 @@ async def on_ready():
 SAUCE_KEYWORDS = ["game", "play"]
 SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
 
-class Timer:
-    def __init__(self, mins):
-        self.mins = mins
-        self.timeout = 0
-
-    def start(self):
-        self.timeout = time.time() + self.mins * 60
-
-    def is_active(self):
-        return time.time() < self.timeout
-
 timer = Timer(30)
 
 @client.event
@@ -109,5 +99,5 @@ async def on_message(message):
             await message.channel.send(msg, file=file)
             os.remove(path)
 
-
+e = Emoji()
 client.run(TOKEN)
