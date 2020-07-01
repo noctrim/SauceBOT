@@ -99,5 +99,4 @@ async def on_message(message):
             await message.channel.send(msg, file=file)
             os.remove(path)
 
-e = Emoji()
 client.run(TOKEN)
