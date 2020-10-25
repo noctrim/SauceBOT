@@ -63,6 +63,7 @@ async def on_raw_reaction_remove(payload):
         if role is not None:
             await member.remove_roles(role)
 
+
 @client.event
 async def on_ready():
     print('Logged in as')
@@ -71,6 +72,35 @@ async def on_ready():
     print('------')
     game = discord.Game("Fetch!")
     await client.change_presence(status=discord.Status.idle, activity=game)
+
+
+@client.event
+async def on_member_update(before, after):
+    """
+    On member update event
+    :param before: before member object
+    :param after: after member object
+    """
+    def has_streamer_activity(acts):
+        """
+        Takes list of activities and checks if is streaming
+        :param acts: tuple of activities
+        :return: boolean if streamer is one of the activities
+        """
+        activities = list(acts)
+        if any([a.type == discord.ActivityType.streaming for a in activities]):
+            return True
+        return False
+
+    role = discord.utils.get(after.guild.roles, name="Live Streamers")
+    if not role:
+        return
+
+    if has_streamer_activity(after.activities):
+        await after.add_roles(role)
+    else:
+        if has_streamer_activity(before.activities):
+            await after.remove_roles(role)
 
 
 SAUCE_KEYWORDS = ["game", "play"]
