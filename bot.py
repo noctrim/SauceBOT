@@ -2,89 +2,182 @@ import discord
 import os
 import random
 import re
-import time
 
-from src.emoji import Emoji
+from discord.ext import commands
 from src.imgur import ImgurBehavior
 from src.timer import Timer
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 
-client = discord.Client()
 imgur = ImgurBehavior()
 
+IMGUR_ALBUM_ID = "XNDQTsC"
+COMMAND_OPT = "!"
+ROLE_SELECT = COMMAND_OPT + "role-select"
+LIVE_STREAMERS = "Live Streamers"
+SAUCE_STOP = "sauce stop"
+SAUCE_KEYWORDS = ["game", "play"]
+SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
+SAUCE_MESSAGE_PREFIX = "Bork! BORK!"
+SAUCE_SLEEP_TIME = 30
+TIMER = Timer(SAUCE_SLEEP_TIME)
 
-@client.event
-async def on_raw_reaction_add(payload):
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = True
+bot = commands.Bot(intents=intents, command_prefix=COMMAND_OPT)
+emoji_converter = commands.EmojiConverter()
+
+
+async def _get_emoji_mapping(ctx):
     """
-    Adds role on emoji reaction
-    :param payload: discord payload item
+    Reads ctx and returns dictionary mapping of emoji-role for role select
+
+    :param ctx: Discord context
+
+    :return: dictionary of emoji mapping
     """
-    # Check if current message reacted too is set message
-    channel = client.get_channel(payload.channel_id)
-    msg = await channel.fetch_message(payload.message_id)
-    if "!role-select" in msg.content and msg.author.top_role.permissions.administrator:
-        _, text = msg.content.split("!role-select")
-        text = text.strip()
+    mapping = {}
 
-        mapping = Emoji.get_mapping(text, client.emojis)
-        role_name = mapping.get(payload.emoji.name, None)
-        guild = discord.utils.find(lambda g: g.id == payload.guild_id, client.guilds)
-        role = discord.utils.get(guild.roles, name=role_name)
-        member = discord.utils.find(lambda m: m.id == payload.user_id, guild.members)
+    # Grab text after key
+    _, text = ctx.message.content.split(ROLE_SELECT)
+    text = text.strip()
 
-        # If reacted emoji matches role, grant access
-        if role is not None:
-            await member.add_roles(role)
-        elif role_name is not None:
-            role = await guild.create_role(name=role_name, reason="Select Role BOT")
-            await member.add_roles(role)
+    # Grab text between brackets
+    r = re.search(r'\[([\s\S]*)\]', text)
+    if not r:
+        print("Check formatting for role select message")
+        return mapping
+    input_map = r.group(1).strip()
 
-@client.event
-async def on_raw_reaction_remove(payload):
+    # Get mapping of emoji- role name
+    lines = input_map.splitlines()
+    for line in lines:
+        try:
+            emoji, role = line.split("-")
+            emoji = emoji.strip()
+            # if is custom emoji convert will return value
+            # otherwise emoji is standard emoji
+            temp = await emoji_converter.convert(ctx, emoji)
+            emoji_name = temp.name if temp else emoji
+            mapping[emoji_name] = role.strip()
+        except Exception as e:
+            print("Error: {0}\n Parsing role select line: {1}. Check formatting.".format(e, line))
+            continue
+    return mapping
+
+
+async def _role_select(msg, payload, added=True):
     """
-    Adds role on emoji reaction
-    :param payload: discord payload item
+    Private method to handle the logic for role select feature.
+    Role select will use a message in the form of
+    <ROLE_SELECT_KEY>[
+        <ROLE_1>: <EMOJI_1>
+        <ROLE_2>: <EMOJI_2>
+    ]
+    then add/remove the role based on the associated emoji reaction
+
+    :param msg: main message
+    :param payload: reaction payload
+    :param added: boolean to track whether emoji was added or removed
+
+    :return: (role, member) associated discord role object (or None if doesn't exist) and current member
     """
-    # Check if current message reacted too is set message
-    channel = client.get_channel(payload.channel_id)
-    msg = await channel.fetch_message(payload.message_id)
-    if "!role-select" in msg.content and msg.author.top_role.permissions.administrator:
-        _, text = msg.content.split("!role-select")
-        text = text.strip()
+    # Check if role select keyword is inside message and the message sender has admin role
+    if ROLE_SELECT not in msg.content or not msg.author.top_role.permissions.administrator:
+        return
 
-        mapping = Emoji.get_mapping(text, client.emojis)
-        role_name = mapping.get(payload.emoji.name, None)
-        guild = discord.utils.find(lambda g: g.id == payload.guild_id, client.guilds)
-        role = discord.utils.get(guild.roles, name=role_name)
-        member = discord.utils.find(lambda m: m.id == payload.user_id, guild.members)
+    # Parse text for role to emoji mapping
+    ctx = await bot.get_context(msg)
+    mapping = await _get_emoji_mapping(ctx)
 
-        # If reacted emoji matches role, grant access
-        if role is not None:
+    # Get expected role name from reacted emoji
+    role_name = mapping.get(payload.emoji.name, None)
+    if not role_name:
+        # reacted emoji is not inside mapping
+        return
+
+    # Try to find existing role from emoji name
+    role = discord.utils.get(ctx.guild.roles, name=role_name)
+
+    # Get current member object
+    member = discord.utils.find(lambda m: m.id == payload.user_id, ctx.guild.members)
+
+    if added:
+        # If no role exists already for current mapped emoji create one
+        if not role:
+            role = await ctx.guild.create_role(name=role_name, reason="[SauceBOT] Select Role")
+        # Add role to member
+        await member.add_roles(role)
+    else:
+        # Remove reacted role if user has it
+        if role:
             await member.remove_roles(role)
 
 
-@client.event
-async def on_ready():
-    print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
-    print('------')
-    game = discord.Game("Fetch!")
-    await client.change_presence(status=discord.Status.idle, activity=game)
-
-
-@client.event
-async def on_member_update(before, after):
+@bot.event
+async def on_raw_reaction_add(payload):
     """
-    On member update event
-    :param before: before member object
-    :param after: after member object
+    On raw reaction add event
+    Called whenever any message has a reaction added from it on server
+
+    :param payload: discord payload item
+    """
+
+    # Get reacted message
+    channel = bot.get_channel(payload.channel_id)
+    msg = await channel.fetch_message(payload.message_id)
+
+    # Do any checks on msg
+    await _role_select(msg, payload, added=True)
+
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    """
+    On raw reaction remove event
+    Called whenever any message has a reaction removed from it on server
+
+    :param payload: discord payload item
+    """
+
+    # Get reacted message
+    channel = bot.get_channel(payload.channel_id)
+    msg = await channel.fetch_message(payload.message_id)
+
+    # Do any checks on msg
+    await _role_select(msg, payload, added=False)
+
+
+@bot.event
+async def on_ready():
+    """
+    On ready event
+    Called whenever BOT starts
+    """
+    print('Logged in as')
+    print(bot.user.name)
+    print(bot.user.id)
+    print('------')
+
+    # Change default presence state
+    game = discord.Game("Fetch!")
+    await bot.change_presence(status=discord.Status.idle, activity=game)
+
+
+async def _live_streamers(member):
+    """
+    Private method to handle live streamers role assign logic.
+    Will assign a live streamers role to anyone currently streaming
+
+    :param member: Currently updated member object
     """
     def has_streamer_activity(acts):
         """
         Takes list of activities and checks if is streaming
+
         :param acts: tuple of activities
+
         :return: boolean if streamer is one of the activities
         """
         activities = list(acts)
@@ -92,41 +185,87 @@ async def on_member_update(before, after):
             return True
         return False
 
-    role = discord.utils.get(after.guild.roles, name="Live Streamers")
+    # Get live streamers role
+    role = discord.utils.get(member.guild.roles, name=LIVE_STREAMERS)
     if not role:
         return
 
-    if has_streamer_activity(after.activities):
-        await after.add_roles(role)
-    else:
-        if has_streamer_activity(before.activities):
-            await after.remove_roles(role)
+    # Add / Remove role if needed
+    if has_streamer_activity(member.activities) and role not in member.roles:
+        await member.add_roles(role)
+    elif not has_streamer_activity(member.activities) and role in member.roles:
+        await member.remove_roles(role)
 
 
-SAUCE_KEYWORDS = ["game", "play"]
-SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
+@bot.event
+async def on_member_update(before, after):
+    """
+    On member update event. Will be called everytime a member is updated
 
-timer = Timer(30)
+    :param before: before member object
+    :param after: after member object
+    """
+    await _live_streamers(after)
 
-@client.event
-async def on_message(message):
-    # we do not want the bot to reply to itself
-    if message.author == client.user or message.author.bot:
-        return
-    text_lower = message.content.lower()
-    if "sauce stop" in text_lower:
-        timer.start()
-    if timer.is_active():
-        return
-    r = r'(^|.)({0})'.format('|'.join(SAUCE_KEYWORDS))
-    if any([c != "!" for c, v in re.findall(r, text_lower)]):
-        msg = "Bork! BORK! {0}".format(random.choice(SAUCE_OPTIONS))
-        album = imgur.get_album()
+
+def _send_image_if_keyword(message):
+    """
+    Private method to handle fun sauce BOT imgur responses
+
+    :param message: discord message received
+    """
+
+    # Turn keywords into regex
+    keyword_regex = r'(^|.)({0})'.format('|'.join(SAUCE_KEYWORDS))
+
+    # Get text
+    text = message.content
+
+    # Search text for any keyword that is not proceeded by !
+    # Prevents people from using !play with music BOT and receiving response
+    if any([c != "!" for c, v in re.findall(keyword_regex, text.lower())]):
+        # Create message text
+        prefix = SAUCE_MESSAGE_PREFIX + " " if SAUCE_MESSAGE_PREFIX else ""
+        msg = "{0}{1}".format(prefix, random.choice(SAUCE_OPTIONS))
+
+        # Get random img from album
+        album = imgur.get_album(IMGUR_ALBUM_ID)
         image = random.choice(album.images)
+
+        # Download image
         path = imgur.download_file(image.link)
         if path:
+            # Attach image to file and send message
             file = discord.File(path)
-            await message.channel.send(msg, file=file)
+            message.channel.send(msg, file=file)
+            # cleanup file
             os.remove(path)
 
-client.run(TOKEN)
+
+@bot.event
+async def on_message(message):
+    """
+    On message received event
+    Called whenever server receives any message
+
+    :param message: message received from server
+    """
+    # we do not want the bot to reply to itself
+    if message.author == bot.user or message.author.bot:
+        return
+
+    text = message.content
+
+    # sets sleep timer if message received
+    if SAUCE_STOP.lower() in text.lower():
+        TIMER.start()
+
+    # if timer is active exit
+    if TIMER.is_active():
+        return
+
+    # check for keyword and send imgur item
+    _send_image_if_keyword(message)
+
+# Start BOT
+bot.run(TOKEN)
