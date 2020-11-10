@@ -26,6 +26,7 @@ SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some f
 SAUCE_MESSAGE_PREFIX = "Bork! BORK!"
 SAUCE_SLEEP_TIME = 30
 TIMER = Timer(SAUCE_SLEEP_TIME)
+WELCOME_CHANNEL = 693574297809059851
 
 intents = discord.Intents.default()
 intents.members = True
@@ -178,12 +179,15 @@ async def on_member_join(member):
 
     :param member: Member object of joining user
     """
-    embed = discord.Embed(title="What's up @{0}".format(
-        member.display_name), description="Check out the #welcome channel!", color=0x03ecfc)
+    welcome_channel = bot.get_channel(WELCOME_CHANNEL)
+    msg = "What's up {0}! Check out the {1} channel!".format(
+        member.mention, welcome_channel.mention)
+    embed = discord.Embed(title="{0} just joined the server!".format(
+        member.display_name), color=0x03ecfc)
     embed.set_thumbnail(url=member.avatar_url)
 
-    channel = bot.get_channel(ANNOUNCEMENTS_CHANNEL)
-    await channel.send(embed=embed)
+    announcements_channel = bot.get_channel(ANNOUNCEMENTS_CHANNEL)
+    await announcements_channel.send(msg, embed=embed)
 
 
 async def _live_streamers(member):
