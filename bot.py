@@ -11,10 +11,15 @@ TOKEN = os.environ["DISCORD_TOKEN"]
 
 imgur = ImgurBehavior()
 
+ANNOUNCEMENTS_CHANNEL = 417857966213955584
 IMGUR_ALBUM_ID = "XNDQTsC"
 COMMAND_OPT = "!"
 ROLE_SELECT = COMMAND_OPT + "role-select"
 LIVE_STREAMERS = "Live Streamers"
+LIVE_STREAMERS_ROLE_MINIMUM = "Wolf Pack"
+STREAMER_CHANNEL = 730792934055608411
+STREAMER_ID = 197958875171913728
+STREAMER_MESSAGE = "Going LIVE! @everyone tune in https://www.twitch.tv/jkrout"
 SAUCE_STOP = "sauce stop"
 SAUCE_KEYWORDS = ["game", "play"]
 SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
@@ -165,6 +170,22 @@ async def on_ready():
     await bot.change_presence(status=discord.Status.idle, activity=game)
 
 
+@bot.event
+async def on_member_join(member):
+    """
+    On member join event
+    Called whenever someone joins server
+
+    :param member: Member object of joining user
+    """
+    embed = discord.Embed(title="What's up @{0}".format(
+        member.display_name), description="Check out the #welcome channel!", color=0x03ecfc)
+    embed.set_thumbnail(url=member.avatar_url)
+
+    channel = bot.get_channel(ANNOUNCEMENTS_CHANNEL)
+    await channel.send(embed=embed)
+
+
 async def _live_streamers(member):
     """
     Private method to handle live streamers role assign logic.
@@ -172,18 +193,23 @@ async def _live_streamers(member):
 
     :param member: Currently updated member object
     """
-    def has_streamer_activity(acts):
+    def get_streamer_activity(acts):
         """
-        Takes list of activities and checks if is streaming
+        Takes list of activities and returns the streamer activity
 
         :param acts: tuple of activities
 
-        :return: boolean if streamer is one of the activities
+        :return: activity if found else None
         """
         activities = list(acts)
-        if any([a.type == discord.ActivityType.streaming for a in activities]):
-            return True
-        return False
+        for a in activities:
+            if a.type == discord.ActivityType.streaming:
+                return a
+
+    # Check if role is higher than threshold for live streamer status
+    role_min = discord.utils.get(member.guild.roles, name=LIVE_STREAMERS_ROLE_MINIMUM)
+    if role_min and role_min > member.top_role:
+        return
 
     # Get live streamers role
     role = discord.utils.get(member.guild.roles, name=LIVE_STREAMERS)
@@ -191,9 +217,14 @@ async def _live_streamers(member):
         return
 
     # Add / Remove role if needed
-    if has_streamer_activity(member.activities) and role not in member.roles:
+    activity = get_streamer_activity(member.activities)
+    if activity and role not in member.roles:
+        if member.id == STREAMER_ID:
+            channel = bot.get_channel(STREAMER_CHANNEL)
+            await channel.send("{0} is playing {1}: {2}\n tune in now! https://www.twitch.tv/jkrout".format(
+                member.display_name, activity.game, activity.name))
         await member.add_roles(role)
-    elif not has_streamer_activity(member.activities) and role in member.roles:
+    elif not activity and role in member.roles:
         await member.remove_roles(role)
 
 
@@ -208,7 +239,7 @@ async def on_member_update(before, after):
     await _live_streamers(after)
 
 
-def _send_image_if_keyword(message):
+async def _send_image_if_keyword(message):
     """
     Private method to handle fun sauce BOT imgur responses
 
@@ -237,7 +268,7 @@ def _send_image_if_keyword(message):
         if path:
             # Attach image to file and send message
             file = discord.File(path)
-            message.channel.send(msg, file=file)
+            await message.channel.send(msg, file=file)
             # cleanup file
             os.remove(path)
 
@@ -265,7 +296,8 @@ async def on_message(message):
         return
 
     # check for keyword and send imgur item
-    _send_image_if_keyword(message)
+    await _send_image_if_keyword(message)
+
 
 # Start BOT
 bot.run(TOKEN)
