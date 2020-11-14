@@ -225,7 +225,7 @@ async def _live_streamers(member):
     if activity and role not in member.roles:
         if member.id == STREAMER_ID:
             channel = bot.get_channel(STREAMER_CHANNEL)
-            await channel.send("{0} is playing {1}: {2}\n @everyone tune in now! https://www.twitch.tv/jkrout".format(
+            await channel.send("{0} is playing {1}: {2}\n@everyone tune in now! https://www.twitch.tv/jkrout".format(
                 member.mention, activity.game, activity.name))
         await member.add_roles(role)
     elif not activity and role in member.roles:
