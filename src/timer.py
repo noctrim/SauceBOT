@@ -5,19 +5,19 @@ class Timer:
     """
     Timer class to check whether a certain amount of time has passed
     """
-    def __init__(self, mins):
+    def __init__(self):
         """
         Timer init
-        :param mins: Minutes to set timer for
         """
-        self.mins = mins
         self.timeout = 0
 
-    def start(self):
+    def start(self, mins):
         """
         Start timer, can start timer again after started and it will restart
+
+        :param mins: Minutes to set timer for
         """
-        self.timeout = time.time() + self.mins * 60
+        self.timeout = time.time() + mins * 60
 
     def is_active(self):
         """

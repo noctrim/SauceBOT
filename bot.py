@@ -20,12 +20,14 @@ LIVE_STREAMERS_ROLE_MINIMUM = "Wolf Pack"
 STREAMER_CHANNEL = 730792934055608411
 STREAMER_ID = 197958875171913728
 STREAMER_MESSAGE = "Going LIVE! @everyone tune in https://www.twitch.tv/jkrout"
-SAUCE_STOP = "sauce stop"
+SAUCE_STOP_SHORT = "sauce stop"
+SAUCE_STOP_LONG = "*throws ball*"
 SAUCE_KEYWORDS = ["game", "play"]
 SAUCE_OPTIONS = ["I love to play!", "", "PICK ME!!", "I mean I'm down for some fetch"]
 SAUCE_MESSAGE_PREFIX = "Bork! BORK!"
-SAUCE_SLEEP_TIME = 30
-TIMER = Timer(SAUCE_SLEEP_TIME)
+SAUCE_SLEEP_TIME_SHORT = 30
+SAUCE_SLEEP_TIME_LONG = 60 * 4
+TIMER = Timer()
 WELCOME_CHANNEL = 693574297809059851
 
 intents = discord.Intents.default()
@@ -292,11 +294,14 @@ async def on_message(message):
     text = message.content
 
     # sets sleep timer if message received
-    if SAUCE_STOP.lower() in text.lower():
-        TIMER.start()
+    if SAUCE_STOP_SHORT.lower() in text.lower():
+        TIMER.start(SAUCE_SLEEP_TIME)
+    elif SAUCE_STOP_LONG.lower() in text.lower():
+        TIMER.start(SAUCE_SLEEP_TIME_LONG)
 
     # if timer is active exit
     if TIMER.is_active():
+        await message.delete()
         return
 
     # check for keyword and send imgur item
