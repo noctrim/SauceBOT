@@ -293,15 +293,19 @@ async def on_message(message):
 
     text = message.content
 
+    delete = False
     # sets sleep timer if message received
     if SAUCE_STOP_SHORT.lower() in text.lower():
+        delete = True
         TIMER.start(SAUCE_SLEEP_TIME)
     elif SAUCE_STOP_LONG.lower() in text.lower():
+        delete = True
         TIMER.start(SAUCE_SLEEP_TIME_LONG)
 
     # if timer is active exit
     if TIMER.is_active():
-        await message.delete()
+        if delete:
+            await message.delete()
         return
 
     # check for keyword and send imgur item
