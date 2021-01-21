@@ -28,6 +28,7 @@ SAUCE_MESSAGE_PREFIX = "Bork! BORK!"
 SAUCE_SLEEP_TIME_SHORT = 30
 SAUCE_SLEEP_TIME_LONG = 60 * 4
 TIMER = Timer()
+STREAMER_TIMER = Timer()
 WELCOME_CHANNEL = 693574297809059851
 
 intents = discord.Intents.default()
@@ -227,10 +228,15 @@ async def _live_streamers(member):
     if activity and role not in member.roles:
         if member.id == STREAMER_ID:
             channel = bot.get_channel(STREAMER_CHANNEL)
-            await channel.send("{0} is playing {1}: {2}\n@everyone tune in now! https://www.twitch.tv/jkrout".format(
-                member.mention, activity.game, activity.name))
+            if STREAMER_TIMER.is_active():
+                await channel.send("{0} stream is back online".format(member.mention))
+            else:
+                await channel.send("{0} is playing {1}: {2}\n@everyone tune in now! https://www.twitch.tv/jkrout".format(
+                    member.mention, activity.game, activity.name))
         await member.add_roles(role)
     elif not activity and role in member.roles:
+        if member.id == STREAMER_ID:
+            STREAMER_TIMER.start(30)
         await member.remove_roles(role)
 
 
