@@ -4,4 +4,3 @@ boto3
 pytz
 Pillow
 imgurpython
-shutil
