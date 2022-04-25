@@ -12,6 +12,7 @@ from datetime import datetime
 from discord.ext import commands, tasks
 from imgurpython import ImgurClient
 from PIL import Image
+from urllib.parse import urlparse
 
 from src.timer import Timer
 
@@ -27,9 +28,11 @@ ROLE_REACT_MESSAGE_ID = 967193372588638218
 COMMAND_OPT = "!"
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-DATABASE_USER = os.environ["DATABASE_USER"]
-DATABASE_NAME = os.environ["DATABASE_NAME"]
-DATABASE_PW = os.environ["DATABASE_PW"]
+raw_info = urlparse(DATABASE_URL)
+DATABASE_INFO = {
+    "host": raw_info.hostname, "user": raw_info.username,
+    "password": raw_info.password, "database": raw_info.path[1:],
+    "port": raw_info.port}
 
 ACTIVE_STREAMERS = {}
 BASE_ROLE_NAME = "Benchwarmer"
@@ -77,7 +80,7 @@ async def on_ready():
     # Change default presence state
     game = discord.Game("Fetch!")
     await bot.change_presence(status=discord.Status.idle, activity=game)
-    #send_daily_messages.start()
+    send_daily_messages.start()
 
     await send_daily_apex_update()
 
@@ -88,9 +91,7 @@ async def send_daily_messages():
 
 
 async def send_daily_photo():
-    conn = psycopg2.connect(
-        host=DATABASE_URL, database=DATABASE_NAME,
-        user=DATABASE_USER, password=DATABASE_PW)
+    conn = psycopg2.connect(**DATABASE_INFO)
     conn.autocommit = True
     cur = conn.cursor()
     cur.execute("select count(*) from sauce_photos")
@@ -121,9 +122,7 @@ async def send_daily_photo():
 @tasks.loop(minutes=30)
 async def send_daily_apex_update():
     def is_match_database(k):
-        conn = psycopg2.connect(
-            host=DATABASE_URL, database=DATABASE_NAME,
-            user=DATABASE_USER, password=DATABASE_PW)
+        conn = psycopg2.connect(**DATABASE_INFO)
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute("select * from discord where key = 'apex_rotation'")
