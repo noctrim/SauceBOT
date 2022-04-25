@@ -71,7 +71,6 @@ async def on_ready():
     # Change default presence state
     game = discord.Game("Fetch!")
     await bot.change_presence(status=discord.Status.idle, activity=game)
-
     send_daily_messages.start()
 
 
@@ -164,7 +163,7 @@ async def send_daily_apex_update():
 async def before_msg1():
     tz = pytz.timezone("US/Pacific")
     while True:
-        if datetime.now(tz).hour == 9:
+        if datetime.now(tz).hour == 10:
             return
         await asyncio.sleep(60)
 
