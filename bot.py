@@ -18,10 +18,9 @@ from src.timer import Timer
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 
-ANNOUNCEMENTS_CHANNEL = 963877676551118909
 PET_PICS_CHANNEL = 967919501037437018
 STREAMER_CHANNEL = 967914669576712222
-WELCOME_CHANNEL = 963877448221593680
+WELCOME_CHANNEL = 963877676551118909
 
 ROLE_REACT_MESSAGE_ID = 967193372588638218
 
@@ -127,6 +126,7 @@ async def send_daily_apex_update():
         cur = conn.cursor()
         cur.execute("select * from discord where key = 'apex_rotation'")
         res = cur.fetchone()
+        print(res)
         if res:
             i, db_key, db_val = res
             if db_val == k:
@@ -157,6 +157,8 @@ async def send_daily_apex_update():
                         shutil.copyfileobj(r.raw, f)
                     files.append(basename)
     key = "".join(files)
+    print(key)
+    print('n')
     if is_match_database(key):
         return
 
