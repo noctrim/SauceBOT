@@ -40,6 +40,7 @@ s3_bucket = s3.Bucket("noctrimphotos")
 SENT_PHOTOS = set()
 
 APEX_TOKEN = os.environ['APEX_TOKEN']
+APEX_CHANNEL = 967946397846474762
 
 IMGUR_CLIENT_ID = os.environ['IMGUR_CLIENT_ID']
 IMGUR_SECRET = os.environ['IMGUR_SECRET']
@@ -70,9 +71,8 @@ async def on_ready():
     # Change default presence state
     game = discord.Game("Fetch!")
     await bot.change_presence(status=discord.Status.idle, activity=game)
-    await send_daily_apex_update()
 
-    send_daily_photo.start()
+    send_daily_messages.start()
 
 
 # Send Daily Dog Photo To Channel
@@ -82,7 +82,7 @@ async def send_daily_messages():
     await send_daily_apex_update()
 
 async def send_daily_photo():
-    avail_photos = [f for f in s3_bucket.objects.all() if not f.endswith("/")]
+    avail_photos = [f for f in s3_bucket.objects.all() if not f.key.endswith("/") and "Sauce" in f.key]
     random.shuffle(avail_photos)
     for photo in avail_photos:
         if photo not in SENT_PHOTOS:
@@ -94,12 +94,12 @@ async def send_daily_photo():
         SENT_PHOTOS.add(photo)
 
     local_fp = "temp.png"
-    s3_bucket.download_file(photo, local_fp)
+    s3_bucket.download_file(photo.key, local_fp)
 
     channel = bot.get_channel(PET_PICS_CHANNEL)
     await channel.send(
         "Daily Dose of Sauce! Enjoy This Pic Of Me, My Friends, And/Or Their Humans! Have A Great Day",
-        file=local_fp)
+        file=discord.File(local_fp))
     os.remove(local_fp)
 
 async def send_daily_apex_update():
@@ -153,7 +153,7 @@ async def send_daily_apex_update():
             colour=discord.Colour.red()
             )
     embed.set_image(url=uploaded_img['link'])
-    channel = bot.get_channel(967928982118998036)
+    channel = bot.get_channel(APEX_CHANNEL)
     await channel.send(embed=embed)
     os.remove(filename)
     for f in files:
