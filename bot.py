@@ -4,9 +4,13 @@ import discord
 import os
 import pytz
 import random
+import requests
+import shutil
 
 from datetime import datetime
 from discord.ext import commands, tasks
+from imgurpython import ImgurClient
+from PIL import Image
 
 from src.timer import Timer
 
@@ -32,10 +36,21 @@ STREAMING_CHANNEL_NOTIFICATION_DELAY = 60
 
 AWS_KEY = os.environ["AWS_KEY"]
 AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
+
 session = boto3.Session(aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
 s3 = session.resource('s3')
 s3_bucket = s3.Bucket("noctrimphotos")
 SENT_PHOTOS = set()
+
+APEX_TOKEN = os.environ['APEX_TOKEN']
+
+IMGUR_CLIENT_ID = os.environ['IMGUR_CLIENT_ID']
+IMGUR_SECRET = os.environ['IMGUR_SECRET']
+IMGUR_ACCESS_TOKEN = os.environ['IMGUR_ACCESS_TOKEN']
+IMGUR_REFRESH_TOKEN = os.environ['IMGUR_REFRESH_TOKEN']
+IMGUR_ALBUM_ID = "77SfNRz"
+imgur = ImgurClient(IMGUR_CLIENT_ID, IMGUR_SECRET)
+imgur.set_user_auth(IMGUR_ACCESS_TOKEN, IMGUR_REFRESH_TOKEN)
 
 intents = discord.Intents.default()
 intents.members = True
@@ -58,12 +73,17 @@ async def on_ready():
     # Change default presence state
     game = discord.Game("Fetch!")
     await bot.change_presence(status=discord.Status.idle, activity=game)
+    await send_daily_apex_update()
 
     send_daily_photo.start()
 
 
 # Send Daily Dog Photo To Channel
 @tasks.loop(hours=24)
+async def send_daily_messages():
+    await send_daily_photo()
+    await send_daily_apex_update()
+
 async def send_daily_photo():
     avail_photos = [f for f in s3_bucket.objects.all() if not f.endswith("/")]
     random.shuffle(avail_photos)
@@ -85,8 +105,65 @@ async def send_daily_photo():
         file=local_fp)
     os.remove(local_fp)
 
+async def send_daily_apex_update():
+    r = requests.get("https://api.mozambiquehe.re/crafting?auth={}".format(APEX_TOKEN))
+    files = []
+    for item in r.json():
+        if "start" in item:
+            content = item['bundleContent']
+            for i in content:
+                asset = i['itemType']['asset']
+                basename = os.path.basename(asset)
+                r = requests.get(asset, stream = True)
+    
+                if r.status_code == 200:
+                    # Set decode_content value to True, otherwise the downloaded image file's size will be zero.
+                    r.raw.decode_content = True
+                    # Open a local file with wb ( write binary ) permission.
+                    with open(basename,'wb') as f:
+                        shutil.copyfileobj(r.raw, f)
+                    files.append(basename)
 
-@send_daily_photo.before_loop
+
+    template_main = Image.open("res/template.png")
+    template = template_main.copy()
+    starting_point = (5,35)
+    for i, f in enumerate(files):
+        img = Image.open(f)
+        img = img.resize((102, 102))
+
+        if i == 2:
+            point = starting_point
+        elif i == 0:
+            point = (starting_point[0], starting_point[1] + 143)
+        elif i == 3:
+            point = (starting_point[0] + 107, starting_point[1])
+        elif i == 1:
+            point = (starting_point[0] + 107, starting_point[1] + 143)
+        template.paste(img, (point))
+    filename = "rotation.png"
+    template.save(filename)
+    uploaded_img = imgur.upload_from_path(filename, anon=False)
+    album = imgur.get_album(IMGUR_ALBUM_ID)
+    imgur.delete_image(album.images[0]['id'])
+    imgur.album_add_images(IMGUR_ALBUM_ID, [uploaded_img['id']])
+
+    tz = pytz.timezone("US/Pacific")
+    date = datetime.strftime(datetime.now(tz), "%m-%d/%Y")
+    embed = discord.Embed(
+            title='APEX: Daily Crafting Rotation',
+            description=date,
+            colour=discord.Colour.red()
+            )
+    embed.set_image(url=uploaded_img['link'])
+    channel = bot.get_channel(967928982118998036)
+    await channel.send(embed=embed)
+    os.remove(filename)
+    for f in files:
+        os.remove(f)
+
+
+@send_daily_messages.before_loop
 async def before_msg1():
     tz = pytz.timezone("US/Pacific")
     while True:
