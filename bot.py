@@ -21,6 +21,7 @@ DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 PET_PICS_CHANNEL = 967919501037437018
 STREAMER_CHANNEL = 967914669576712222
 WELCOME_CHANNEL = 963877676551118909
+READ_ME_CHANNEL = 963877448221593680
 
 ROLE_REACT_MESSAGE_ID = 967193372588638218
 
@@ -78,10 +79,11 @@ async def on_ready():
 
     # Change default presence state
     game = discord.Game("Fetch!")
+
     await bot.change_presence(status=discord.Status.idle, activity=game)
     send_daily_messages.start()
-
     await send_daily_apex_update()
+
 
 # Send Daily Dog Photo To Channel
 @tasks.loop(hours=24)
@@ -126,7 +128,6 @@ async def send_daily_apex_update():
         cur = conn.cursor()
         cur.execute("select * from discord where key = 'apex_rotation'")
         res = cur.fetchone()
-        print(res)
         if res:
             i, db_key, db_val = res
             if db_val == k:
@@ -157,8 +158,6 @@ async def send_daily_apex_update():
                         shutil.copyfileobj(r.raw, f)
                     files.append(basename)
     key = "".join(files)
-    print(key)
-    print('n')
     if is_match_database(key):
         return
 
@@ -219,8 +218,9 @@ async def on_member_join(member):
     :param member: Member object of joining user
     """
     welcome_channel = bot.get_channel(WELCOME_CHANNEL)
+    readme_channel = bot.get_channel(READ_ME_CHANNEL)
     msg = "What's up {0}! Welcome to Noc's Corner. Check out the {1}".format(
-        member.mention, welcome_channel.mention)
+        member.mention, readme_channel.mention)
     embed = discord.Embed(title="{0} just joined the server!".format(
         member.display_name), color=0x03ecfc)
     embed.set_thumbnail(url=member.avatar_url)
