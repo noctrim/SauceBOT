@@ -2,6 +2,7 @@ import asyncio
 import boto3
 import discord
 import os
+import psycopg2
 import pytz
 import random
 import requests
@@ -14,7 +15,7 @@ from PIL import Image
 
 from src.timer import Timer
 
-TOKEN = os.environ["DISCORD_TOKEN"]
+DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 
 ANNOUNCEMENTS_CHANNEL = 963877676551118909
 PET_PICS_CHANNEL = 967919501037437018
@@ -24,6 +25,11 @@ WELCOME_CHANNEL = 963877448221593680
 ROLE_REACT_MESSAGE_ID = 967193372588638218
 
 COMMAND_OPT = "!"
+
+DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_USER = os.environ["DATABASE_USER"]
+DATABASE_NAME = os.environ["DATABASE_NAME"]
+DATABASE_PW = os.environ["DATABASE_PW"]
 
 ACTIVE_STREAMERS = {}
 BASE_ROLE_NAME = "Benchwarmer"
@@ -71,26 +77,36 @@ async def on_ready():
     # Change default presence state
     game = discord.Game("Fetch!")
     await bot.change_presence(status=discord.Status.idle, activity=game)
-    send_daily_messages.start()
+    #send_daily_messages.start()
 
+    await send_daily_apex_update()
 
 # Send Daily Dog Photo To Channel
 @tasks.loop(hours=24)
 async def send_daily_messages():
     await send_daily_photo()
-    await send_daily_apex_update()
+
 
 async def send_daily_photo():
+    conn = psycopg2.connect(
+        host=DATABASE_URL, database=DATABASE_NAME,
+        user=DATABASE_USER, password=DATABASE_PW)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("select count(*) from sauce_photos")
+    count, _ = cur.fetchone()
+
     avail_photos = [f for f in s3_bucket.objects.all() if not f.key.endswith("/") and "Sauce" in f.key]
     random.shuffle(avail_photos)
     for photo in avail_photos:
         if photo not in SENT_PHOTOS:
-            SENT_PHOTOS.add(photo)
+            cur.execute("insert into sauce_photos(id, name) values(%s, %s)", (count+1, photo.key))
             break
     else:
         # All photos were seen, clear and start over
-        SENT_PHOTOS.clear()
-        SENT_PHOTOS.add(photo)
+        cur.execute("truncate sauce_photos")
+        cur.execute("insert into sauce_photos(id, name) values(%s, %s)", (1, photo.key))
+    conn.close()
 
     local_fp = "temp.png"
     s3_bucket.download_file(photo.key, local_fp)
@@ -101,7 +117,29 @@ async def send_daily_photo():
         file=discord.File(local_fp))
     os.remove(local_fp)
 
+
+@tasks.loop(minutes=30)
 async def send_daily_apex_update():
+    def is_match_database(k):
+        conn = psycopg2.connect(
+            host=DATABASE_URL, database=DATABASE_NAME,
+            user=DATABASE_USER, password=DATABASE_PW)
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute("select * from discord where key = 'apex_rotation'")
+        res = cur.fetchone()
+        if res:
+            i, db_key, db_val = res
+            if db_val == k:
+                conn.close()
+                return True
+            cur.execute("update discord set value = %s where id = %s", (k, i))
+        else:
+            print("Couldn't Find Apex Rotation in DB")
+        conn.close()
+        return False
+
+
     r = requests.get("https://api.mozambiquehe.re/crafting?auth={}".format(APEX_TOKEN))
     files = []
     for item in r.json():
@@ -119,7 +157,9 @@ async def send_daily_apex_update():
                     with open(basename,'wb') as f:
                         shutil.copyfileobj(r.raw, f)
                     files.append(basename)
-
+    key = "".join(files)
+    if is_match_database(key):
+        return
 
     template_main = Image.open("res/template.png")
     template = template_main.copy()
@@ -145,7 +185,7 @@ async def send_daily_apex_update():
     imgur.album_add_images(IMGUR_ALBUM_ID, [uploaded_img['id']])
 
     tz = pytz.timezone("US/Pacific")
-    date = datetime.strftime(datetime.now(tz), "%m-%d/%Y")
+    date = datetime.strftime(datetime.now(tz), "%m-%d/%Y %-I:%M%p")
     embed = discord.Embed(
             title='APEX: Daily Crafting Rotation',
             description=date,
@@ -291,4 +331,4 @@ async def on_raw_reaction_add(payload):
 
 
 # Start BOT
-bot.run(TOKEN)
+bot.run(DISCORD_TOKEN)
