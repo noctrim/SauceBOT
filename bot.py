@@ -52,6 +52,8 @@ SENT_PHOTOS = set()
 APEX_TOKEN = os.environ['APEX_TOKEN']
 APEX_CHANNEL = 967946397846474762
 
+OW_CHANNEL = 967928982118998036
+
 IMGUR_CLIENT_ID = os.environ['IMGUR_CLIENT_ID']
 IMGUR_SECRET = os.environ['IMGUR_SECRET']
 IMGUR_ACCESS_TOKEN = os.environ['IMGUR_ACCESS_TOKEN']
@@ -83,7 +85,8 @@ async def on_ready():
 
     await bot.change_presence(status=discord.Status.idle, activity=game)
     send_daily_messages.start()
-    await send_daily_apex_update()
+    send_daily_apex_update.start()
+    send_daily_ow_update.start()
 
 
 # Send Daily Dog Photo To Channel
@@ -121,24 +124,39 @@ async def send_daily_photo():
     os.remove(local_fp)
 
 
+def is_match_database(key, val):
+    conn = psycopg2.connect(**DATABASE_INFO)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("select * from discord where key = %s", (key,))
+    res = cur.fetchone()
+    if res:
+        i, dbkey, dbval = res
+        if dbval == val:
+            conn.close()
+            return True
+        cur.execute("update discord set value = %s where id = %s", (val, i))
+    else:
+        print("Couldn't Find [{}] in DB".format(key))
+    conn.close()
+    return False
+
+def check_youtube(channel_id, db_key):
+    html = requests.get("https://www.youtube.com/c/{}/videos".format(channel_id)).text
+    info = html.split("videoId", 2)
+    snippet = info[1]
+
+    r = r'\"text\":\"(.*?)\".*?\"url\":\"(.*?)\"'
+    m = re.search(r, snippet)
+    title = m.group(1)
+    link = m.group(2)
+
+    if is_match_database(db_key, title):
+        return None
+    return "https://www.youtube.com{}".format(link)
+
 @tasks.loop(minutes=30)
 async def send_daily_apex_update():
-    def is_match_database(key, val):
-        conn = psycopg2.connect(**DATABASE_INFO)
-        conn.autocommit = True
-        cur = conn.cursor()
-        cur.execute("select * from discord where key = %s", (key,))
-        res = cur.fetchone()
-        if res:
-            i, dbkey, dbval = res
-            if dbval == val:
-                conn.close()
-                return True
-            cur.execute("update discord set value = %s where id = %s", (val, i))
-        else:
-            print("Couldn't Find Apex Rotation in DB")
-        conn.close()
-        return False
 
     async def crafting_update():
         r = requests.get("https://api.mozambiquehe.re/crafting?auth={}".format(APEX_TOKEN))
@@ -199,26 +217,18 @@ async def send_daily_apex_update():
         for f in files:
             os.remove(f)
 
-    async def check_youtube():
-        html = requests.get("https://www.youtube.com/channel/UC0ZV6M2THA81QT9hrVWJG3A").text
-        info = html.split("videoId", 2)
-        snippet = info[1]
-    
-        r = r'\"text\":\"(.*?)\".*?\"url\":\"(.*?)\"'
-        m = re.search(r, snippet)
-        title = m.group(1)
-        link = m.group(2)
-
-        if is_match_database("apex_last_video", title):
-            return
-
+    await crafting_update()
+    url = check_youtube("playapex", "apex_last_video")
+    if url:
         channel = bot.get_channel(APEX_CHANNEL)
-        url = "https://www.youtube.com{}".format(link)
         await channel.send("New Upload From ApexLegends!\n{}".format(url))
 
-    await crafting_update()
-    await check_youtube()
-
+@tasks.loop(minutes=30)
+async def send_daily_ow_update():
+    url = check_youtube("playoverwatch", "ow_last_video")
+    if url:
+        channel = bot.get_channel(OW_CHANNEL)
+        await channel.send("New Upload From PlayOverwatch!\n{}".format(url))
 
 @send_daily_messages.before_loop
 async def before_msg1():
