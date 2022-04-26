@@ -5,6 +5,7 @@ import os
 import psycopg2
 import pytz
 import random
+import re
 import requests
 import shutil
 
@@ -122,81 +123,101 @@ async def send_daily_photo():
 
 @tasks.loop(minutes=30)
 async def send_daily_apex_update():
-    def is_match_database(k):
+    def is_match_database(key, val):
         conn = psycopg2.connect(**DATABASE_INFO)
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("select * from discord where key = 'apex_rotation'")
+        cur.execute("select * from discord where key = %s", (key,))
         res = cur.fetchone()
         if res:
-            i, db_key, db_val = res
-            if db_val == k:
+            i, dbkey, dbval = res
+            if dbval == val:
                 conn.close()
                 return True
-            cur.execute("update discord set value = %s where id = %s", (k, i))
+            cur.execute("update discord set value = %s where id = %s", (val, i))
         else:
             print("Couldn't Find Apex Rotation in DB")
         conn.close()
         return False
 
-
-    r = requests.get("https://api.mozambiquehe.re/crafting?auth={}".format(APEX_TOKEN))
-    files = []
-    for item in r.json():
-        if "start" in item:
-            content = item['bundleContent']
-            for i in content:
-                asset = i['itemType']['asset']
-                basename = os.path.basename(asset)
-                r = requests.get(asset, stream = True)
+    async def crafting_update():
+        r = requests.get("https://api.mozambiquehe.re/crafting?auth={}".format(APEX_TOKEN))
+        files = []
+        for item in r.json():
+            if "start" in item:
+                content = item['bundleContent']
+                for i in content:
+                    asset = i['itemType']['asset']
+                    basename = os.path.basename(asset)
+                    r = requests.get(asset, stream = True)
+        
+                    if r.status_code == 200:
+                        # Set decode_content value to True, otherwise the downloaded image file's size will be zero.
+                        r.raw.decode_content = True
+                        # Open a local file with wb ( write binary ) permission.
+                        with open(basename,'wb') as f:
+                            shutil.copyfileobj(r.raw, f)
+                        files.append(basename)
+        key = "".join(files)
+        if is_match_database('apex_rotation', key):
+            return
     
-                if r.status_code == 200:
-                    # Set decode_content value to True, otherwise the downloaded image file's size will be zero.
-                    r.raw.decode_content = True
-                    # Open a local file with wb ( write binary ) permission.
-                    with open(basename,'wb') as f:
-                        shutil.copyfileobj(r.raw, f)
-                    files.append(basename)
-    key = "".join(files)
-    if is_match_database(key):
-        return
+        template_main = Image.open("res/template.png")
+        template = template_main.copy()
+        starting_point = (5,35)
+        for i, f in enumerate(files):
+            img = Image.open(f)
+            img = img.resize((102, 102))
+    
+            if i == 2:
+                point = starting_point
+            elif i == 0:
+                point = (starting_point[0], starting_point[1] + 143)
+            elif i == 3:
+                point = (starting_point[0] + 107, starting_point[1])
+            elif i == 1:
+                point = (starting_point[0] + 107, starting_point[1] + 143)
+            template.paste(img, (point))
+        filename = "rotation.png"
+        template.save(filename)
+        uploaded_img = imgur.upload_from_path(filename, anon=False)
+        album = imgur.get_album(IMGUR_ALBUM_ID)
+        imgur.delete_image(album.images[0]['id'])
+        imgur.album_add_images(IMGUR_ALBUM_ID, [uploaded_img['id']])
+    
+        tz = pytz.timezone("US/Pacific")
+        date = datetime.strftime(datetime.now(tz), "%m-%d/%Y %-I:%M%p")
+        embed = discord.Embed(
+                title='APEX: Daily Crafting Rotation',
+                description=date,
+                colour=discord.Colour.red()
+                )
+        embed.set_image(url=uploaded_img['link'])
+        channel = bot.get_channel(APEX_CHANNEL)
+        await channel.send(embed=embed)
+        os.remove(filename)
+        for f in files:
+            os.remove(f)
 
-    template_main = Image.open("res/template.png")
-    template = template_main.copy()
-    starting_point = (5,35)
-    for i, f in enumerate(files):
-        img = Image.open(f)
-        img = img.resize((102, 102))
+    async def check_youtube():
+        html = requests.get("https://www.youtube.com/channel/UC0ZV6M2THA81QT9hrVWJG3A").text
+        info = html.split("videoId", 2)
+        snippet = info[1]
+    
+        r = r'\"text\":\"(.*?)\".*?\"url\":\"(.*?)\"'
+        m = re.search(r, snippet)
+        title = m.group(1)
+        link = m.group(2)
 
-        if i == 2:
-            point = starting_point
-        elif i == 0:
-            point = (starting_point[0], starting_point[1] + 143)
-        elif i == 3:
-            point = (starting_point[0] + 107, starting_point[1])
-        elif i == 1:
-            point = (starting_point[0] + 107, starting_point[1] + 143)
-        template.paste(img, (point))
-    filename = "rotation.png"
-    template.save(filename)
-    uploaded_img = imgur.upload_from_path(filename, anon=False)
-    album = imgur.get_album(IMGUR_ALBUM_ID)
-    imgur.delete_image(album.images[0]['id'])
-    imgur.album_add_images(IMGUR_ALBUM_ID, [uploaded_img['id']])
+        if is_match_database("apex_last_video", title):
+            return
 
-    tz = pytz.timezone("US/Pacific")
-    date = datetime.strftime(datetime.now(tz), "%m-%d/%Y %-I:%M%p")
-    embed = discord.Embed(
-            title='APEX: Daily Crafting Rotation',
-            description=date,
-            colour=discord.Colour.red()
-            )
-    embed.set_image(url=uploaded_img['link'])
-    channel = bot.get_channel(APEX_CHANNEL)
-    await channel.send(embed=embed)
-    os.remove(filename)
-    for f in files:
-        os.remove(f)
+        channel = bot.get_channel(APEX_CHANNEL)
+        url = "https://www.youtube.com{}".format(link)
+        await channel.send("New Upload From ApexLegends!\n{}".format(url))
+
+    await crafting_update()
+    await check_youtube()
 
 
 @send_daily_messages.before_loop
