@@ -100,7 +100,7 @@ async def send_daily_photo():
     conn.autocommit = True
     cur = conn.cursor()
     cur.execute("select count(*) from sauce_photos")
-    count, _ = cur.fetchone()
+    count = cur.fetchone()[0]
 
     avail_photos = [f for f in s3_bucket.objects.all() if not f.key.endswith("/") and "Sauce" in f.key]
     random.shuffle(avail_photos)
