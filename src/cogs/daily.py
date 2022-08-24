@@ -1,7 +1,6 @@
-from contextlib import asynccontextmanager
 from datetime import datetime
 from discord.ext import tasks
-from random import random
+import random
 import asyncio
 import discord
 import os
@@ -40,7 +39,9 @@ class DailyUpdates(CogBase):
         """
         Helper util function to send daily sauce photo
         """
-        avail_photos = set(random.random(get_all_relevant_photos()))
+        photos = get_all_relevant_photos()
+        random.shuffle(photos)
+        avail_photos = set(photos)
         seen_photos = set(get_all_seen_photos())
 
         not_posted = avail_photos - seen_photos
@@ -50,7 +51,6 @@ class DailyUpdates(CogBase):
             clear_table()
             photo = avail_photos.pop()
         add_photo_to_table(photo)
-
         local_fp = "temp.png"
         download_file(photo, local_fp)
 
@@ -62,7 +62,7 @@ class DailyUpdates(CogBase):
             await channel.send(
                 "Daily Dose of Sauce! Enjoy This Pic Of Me, My Friends, And/Or Their Humans! Have A Great Day",
                 file=discord.File(local_fp))
-            os.remove(local_fp)
+        os.remove(local_fp)
 
     async def youtube_update(self, youtube_channel, db_key, send_channel, youtube_display=None):
         """

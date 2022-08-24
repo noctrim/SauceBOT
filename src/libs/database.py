@@ -16,7 +16,11 @@ def get_config(gid, key=None):
         })
     item = resp['Item'] if 'Item' in resp else {}
     if key:
-        return getattr(item, key, None)
+        if key in item:
+            val = item[key]
+            return int(val) if val.isnumeric() else val
+        else:
+            return None
     else:
         return item
 
