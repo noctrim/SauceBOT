@@ -1,16 +1,12 @@
+from discord.ext import commands
 import discord
 
 from .base import CogBase
-from discord.ext import commands
+from ..libs.database import get_config
 from ..libs.timer import Timer
 
-ROLE_REACT_MESSAGE_ID = 967193372588638218
-STREAMER_CHANNEL = 967914669576712222
 
 ACTIVE_STREAMERS = {}
-BASE_ROLE_NAME = "Squad"
-LIVE_STREAMERS = "Live"
-LIVE_STREAMERS_ROLE_MINIMUM = "ANBU Black Ops"
 STREAMING_CHANNEL_NOTIFICATION_DELAY = 60
 
 
@@ -33,16 +29,20 @@ class Roles(CogBase):
         # check if event was reaction to role message
         channel = self.bot.get_channel(payload.channel_id)
         msg = await channel.fetch_message(payload.message_id)
-        if msg.id != ROLE_REACT_MESSAGE_ID:
+        ctx = await self.bot.get_context(msg)
+
+        role_react_message = get_config(ctx.guild.id, "roleReact")
+        if msg.id != role_react_message:
             return
 
-        ctx = await self.bot.get_context(msg)
         member = discord.utils.find(lambda m: m.id == payload.user_id, ctx.guild.members)
 
         # add base role if missing
-        base_role = discord.utils.get(ctx.guild.roles, name=BASE_ROLE_NAME)
-        if base_role not in member.roles:
-            await member.add_roles(base_role)
+        base_role_id = get_config(ctx.guild.id, "baseRole")
+        if base_role_id:
+            base_role = discord.utils.get(ctx.guild.roles, id=base_role_id)
+            if base_role not in member.roles:
+                await member.add_roles(base_role)
 
         expected_role_name = payload.emoji.name.lower()
         # check for opt out
@@ -99,28 +99,35 @@ class Roles(CogBase):
                 if a.type == discord.ActivityType.streaming:
                     return a
 
-        # Check if role is higher than threshold for live streamer status
-        role_min = discord.utils.get(member.guild.roles, name=LIVE_STREAMERS_ROLE_MINIMUM)
-        if role_min and role_min > member.top_role:
+        # Get live streamers role
+        live_streamers_role = get_config(member.guild.id, "liveStreamerRole")
+        if not live_streamers_role:
             return
 
-        # Get live streamers role
-        role = discord.utils.get(member.guild.roles, name=LIVE_STREAMERS)
+        role = discord.utils.get(member.guild.roles, name=live_streamers_role)
         if not role:
             return
 
+        # Check if role is higher than threshold for live streamer status
+        live_streamers_role_min = get_config(member.guild.id, "liveStreamerRoleMinimum")
+        if live_streamers_role_min:
+            role_min = discord.utils.get(member.guild.roles, name=live_streamers_role_min)
+            if role_min and role_min > member.top_role:
+                return
+
         # Check if member is currently streaming + has streamer role
+        streamer_channel = get_config(member.guild.id, "streamerChannel")
         activity = get_streamer_activity(member.activities)
         if activity and role not in member.roles:
-            channel = self.bot.get_channel(STREAMER_CHANNEL)
             await member.add_roles(role)
 
             # check if member stream has already been started recently
             if member.name in ACTIVE_STREAMERS and ACTIVE_STREAMERS[member.name].is_active():
                 return
-
-            await channel.send("{0} is now streaming: [{1}: {2}]. Tune in!".format(
-                member.mention, activity.game, activity.name))
+            if streamer_channel:
+                channel = self.bot.get_channel(streamer_channel)
+                await channel.send("{0} is now streaming: [{1}: {2}]. Tune in!".format(
+                    member.mention, activity.game, activity.name))
         elif not activity and role in member.roles:
             # stream has ended, remove role and start timer in case comes back online
             await member.remove_roles(role)

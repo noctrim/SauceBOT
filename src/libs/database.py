@@ -1,44 +1,41 @@
-import os
-import psycopg2
+import boto3
 
-from contextlib import contextmanager
-from urllib.parse import urlparse
-
-DATABASE_URL = os.environ["DATABASE_URL"]
-raw_info = urlparse(DATABASE_URL)
-DATABASE_INFO = {
-    "host": raw_info.hostname, "user": raw_info.username,
-    "password": raw_info.password, "database": raw_info.path[1:],
-    "port": raw_info.port}
+dynamodb = boto3.resource('dynamodb')
+GUILD_CONFIG = dynamodb.Table("GuildConfig")
+SAUCE_PHOTOS = dynamodb.Table("SaucePhotos")
+DISCORD = dynamodb.Table("Discord")
 
 
-@contextmanager
-def connect():
+def get_config(gid, key=None):
     """
-    Helper function to make sure DB is closed
+    Gets current config for a specific guild
     """
-    conn = psycopg2.connect(**DATABASE_INFO)
-    conn.autocommit = True
-    cur = conn.cursor()
-    yield cur
-    conn.close()
+    resp = GUILD_CONFIG.get_item(
+        Key={
+            'Guild': str(gid)
+        })
+    item = resp['Item'] if 'Item' in resp else {}
+    if key:
+        return getattr(item, key, None)
+    else:
+        return item
 
 
 def clear_table():
     """
     Clears sauce table of all seen photos
     """
-    with connect() as cur:
-        cur.execute("truncate sauce_photos")
+    scan = SAUCE_PHOTOS.scan()
+    with SAUCE_PHOTOS.batch_writer() as batch:
+        for each in scan['Items']:
+            batch.delete_item(Key=each)
 
 
 def get_current_photo_count():
     """
     Gets the current number of photos inside sauce table
     """
-    with connect() as cur:
-        cur.execute("select count(*) from sauce_photos")
-        return cur.fetchone()[0]
+    return SAUCE_PHOTOS.scan()["Count"]
 
 
 def get_all_seen_photos():
@@ -47,9 +44,7 @@ def get_all_seen_photos():
 
     :return: list of titles
     """
-    with connect() as cur:
-        cur.execute("select * from sauce_photos")
-        return [p[1] for p in cur.fetchall()]
+    return [each["Filename"] for each in SAUCE_PHOTOS.scan()["Items"]]
 
 
 def add_photo_to_table(filename):
@@ -58,9 +53,9 @@ def add_photo_to_table(filename):
 
     :param filename: name of file seen
     """
-    id_ = get_current_photo_count() + 1
-    with connect() as cur:
-        cur.execute("insert into sauce_photos(id, name) values(%s, %s)", (id_, filename))
+    SAUCE_PHOTOS.put_item(Item={
+        "Filename": filename
+    })
 
 
 def is_match_database(key, val, update=True):
@@ -71,17 +66,26 @@ def is_match_database(key, val, update=True):
     :param key: key to check
     :param val: expected val
     :param update: flag to disable updating
-    :return: bool if val is new
+    :return: bool if val matches
     """
-    with connect() as cur:
-        cur.execute("select * from discord where key = %s", (key,))
-        res = cur.fetchone()
-        if res:
-            i, dbkey, dbval = res
-            if dbval == val:
-                return True
-            if update:
-                cur.execute("update discord set value = %s where id = %s", (val, i))
-        else:
-            print("Couldn't Find [{}] in DB".format(key))
-        return False
+    resp = DISCORD.get_item(
+        Key={
+            'Id': key
+        }
+    )
+
+    if "Item" in resp:
+        item = resp["Item"]
+    else:
+        item = None
+
+    if item and item['Value'] == val:
+        return True
+
+    if update:
+        DISCORD.put_item(Item={
+            "Id": key,
+            "Value": val
+        })
+
+    return False

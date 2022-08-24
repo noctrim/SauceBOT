@@ -8,6 +8,7 @@ from src.cogs.roles import Roles
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 
+HOME_GUILD_ID = 963874298928447559
 WELCOME_CHANNEL = 963877676551118909
 READ_ME_CHANNEL = 963877448221593680
 
@@ -51,13 +52,15 @@ async def on_member_join(member):
 
     :param member: Member object of joining user
     """
+    if member.guild.id != HOME_GUILD_ID:
+        return
     welcome_channel = bot.get_channel(WELCOME_CHANNEL)
     readme_channel = bot.get_channel(READ_ME_CHANNEL)
     msg = "What's up {0}! Welcome to Noc's Corner. Check out the {1}".format(
         member.mention, readme_channel.mention)
     embed = discord.Embed(title="{0} just joined the server!".format(
         member.display_name), color=0x03ecfc)
-    embed.set_thumbnail(url=member.avatar_url)
+    embed.set_thumbnail(url=member.avatar.url)
     await welcome_channel.send(msg, embed=embed)
 
 

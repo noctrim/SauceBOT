@@ -10,6 +10,7 @@ class Timer:
         Timer init
         """
         self.timeout = 0
+        self.started = False
 
     def start(self, mins):
         """
@@ -18,6 +19,7 @@ class Timer:
         :param mins: Minutes to set timer for
         """
         self.timeout = time.time() + mins * 60
+        self.started = True
 
     def is_active(self):
         """

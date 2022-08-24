@@ -1,25 +1,19 @@
+from contextlib import asynccontextmanager
+from datetime import datetime
+from discord.ext import tasks
+from random import random
 import asyncio
 import discord
 import os
 import pytz
 
 from .base import CogBase
-from datetime import datetime
-from discord.ext import tasks
-from random import random
-
 from ..libs.apex import generate_crafting_image
-from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos
+from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos, get_config
 from ..libs.imgur import overwrite_last_image
 from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 
-
-PET_PICS_CHANNEL = 967919501037437018
-
-APEX_CHANNEL = 967946397846474762
-
-OW_CHANNEL = 967946457338507304
 
 DAILY_MESSAGE_HOUR = 10
 DAILY_MESSAGE_TZ = pytz.timezone("US/Pacific")
@@ -60,11 +54,15 @@ class DailyUpdates(CogBase):
         local_fp = "temp.png"
         download_file(photo, local_fp)
 
-        channel = self.bot.get_channel(PET_PICS_CHANNEL)
-        await channel.send(
-            "Daily Dose of Sauce! Enjoy This Pic Of Me, My Friends, And/Or Their Humans! Have A Great Day",
-            file=discord.File(local_fp))
-        os.remove(local_fp)
+        for guild in self.bot.guilds:
+            pet_pics_channel = get_config(guild.id, "petPicsChannel")
+            if not pet_pics_channel:
+                continue
+            channel = self.bot.get_channel(pet_pics_channel)
+            await channel.send(
+                "Daily Dose of Sauce! Enjoy This Pic Of Me, My Friends, And/Or Their Humans! Have A Great Day",
+                file=discord.File(local_fp))
+            os.remove(local_fp)
 
     async def youtube_update(self, youtube_channel, db_key, send_channel, youtube_display=None):
         """
@@ -87,27 +85,28 @@ class DailyUpdates(CogBase):
         """
         Task to send live Apex updates
         """
-        async def crafting_update():
-            """
-            Helper function to send crafting update if rotated
-            """
-            filename = generate_crafting_image()
-            if not filename:
-                return
-            uploaded_img = overwrite_last_image(filename)
+        filename = generate_crafting_image()
+        if not filename:
+            return
+        uploaded_img = overwrite_last_image(filename)
 
-            date = datetime.strftime(datetime.now(DAILY_MESSAGE_TZ), "%m-%d/%Y %-I:%M%p")
-            embed = discord.Embed(
-                    title='APEX: Daily Crafting Rotation',
-                    description=date,
-                    colour=discord.Colour.red()
-                    )
-            embed.set_image(url=uploaded_img['link'])
-            channel = self.bot.get_channel(APEX_CHANNEL)
-            await channel.send(embed=embed)
-            os.remove(filename)
-        await crafting_update()
-        await self.youtube_update("playapex", "apex_last_video", APEX_CHANNEL, "ApexLegends")
+        date = datetime.strftime(datetime.now(DAILY_MESSAGE_TZ), "%m-%d/%Y %-I:%M%p")
+        embed = discord.Embed(
+                title='APEX: Daily Crafting Rotation',
+                description=date,
+                colour=discord.Colour.red()
+                )
+        embed.set_image(url=uploaded_img['link'])
+        os.remove(filename)
+
+        for guild in self.bot.guilds:
+            apex_channel = get_config(guild.id, "apexChannel")
+            if not apex_channel:
+                continue
+            await self.youtube_update("playapex", "apex_last_video", apex_channel, "ApexLegends")
+            if embed:
+                channel = self.bot.get_channel(apex_channel)
+                await channel.send(embed=embed)
 
     # [SECTION] Overwatch
     @tasks.loop(minutes=30)
@@ -115,4 +114,8 @@ class DailyUpdates(CogBase):
         """
         Task to send live overwatch updates
         """
-        await self.youtube_update("PlayOverwatch", "ow_last_video", OW_CHANNEL)
+        for guild in self.bot.guilds:
+            ow_channel = get_config(guild.id, "owChannel")
+            if not ow_channel:
+                continue
+            await self.youtube_update("PlayOverwatch", "ow_last_video", ow_channel)
