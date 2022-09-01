@@ -1,9 +1,9 @@
-discord.py
 requests
 boto3
 pytz
 Pillow
 imgurpython
-psycopg2
 youtube-dl
 google-api-python-client
+py-cord
+py-cord[voice]
