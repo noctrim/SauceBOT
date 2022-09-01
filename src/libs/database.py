@@ -8,7 +8,7 @@ DISCORD = dynamodb.Table("Discord")
 
 def get_config(gid, key=None):
     """
-    Gets current config for a specific guild
+    Gets current config for a specific guild.
     """
     resp = GUILD_CONFIG.get_item(
         Key={
