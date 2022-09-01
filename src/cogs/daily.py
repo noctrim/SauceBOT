@@ -9,7 +9,6 @@ import pytz
 from .base import CogBase
 from ..libs.apex import generate_crafting_image
 from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos, get_config
-from ..libs.imgur import overwrite_last_image
 from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 
@@ -88,7 +87,6 @@ class DailyUpdates(CogBase):
         filename = generate_crafting_image()
         if not filename:
             return
-        uploaded_img = overwrite_last_image(filename)
 
         date = datetime.strftime(datetime.now(DAILY_MESSAGE_TZ), "%m-%d/%Y %-I:%M%p")
         embed = discord.Embed(
@@ -96,8 +94,9 @@ class DailyUpdates(CogBase):
                 description=date,
                 colour=discord.Colour.red()
                 )
-        embed.set_image(url=uploaded_img['link'])
-        os.remove(filename)
+
+        file_ = discord.File(filename)
+        embed.set_image(url="attachment://{}".format(filename))
 
         for guild in self.bot.guilds:
             apex_channel = get_config(guild.id, "apexChannel")
@@ -106,7 +105,8 @@ class DailyUpdates(CogBase):
             await self.youtube_update("playapex", "apex_last_video", apex_channel, "ApexLegends")
             if embed:
                 channel = self.bot.get_channel(apex_channel)
-                await channel.send(embed=embed)
+                await channel.send(file=file_, embed=embed)
+        os.remove(filename)
 
     # [SECTION] Overwatch
     @tasks.loop(minutes=30)

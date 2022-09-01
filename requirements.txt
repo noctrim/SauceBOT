@@ -2,7 +2,6 @@ requests
 boto3
 pytz
 Pillow
-imgurpython
 youtube-dl
 google-api-python-client
 py-cord
