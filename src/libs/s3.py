@@ -4,8 +4,7 @@ import os
 AWS_KEY = os.environ["AWS_KEY"]
 AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
 
-session = boto3.Session(aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
-s3 = session.resource('s3')
+s3 = boto3.resource('s3')
 s3_bucket = s3.Bucket("noctrimphotos")
 SENT_PHOTOS = set()
 
