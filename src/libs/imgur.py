@@ -21,3 +21,4 @@ def overwrite_last_image(filename):
     album = imgur.get_album(IMGUR_ALBUM_ID)
     imgur.delete_image(album.images[0]['id'])
     imgur.album_add_images(IMGUR_ALBUM_ID, [uploaded_img['id']])
+    return uploaded_img

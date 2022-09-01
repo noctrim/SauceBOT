@@ -4,6 +4,7 @@ import os
 from discord.ext import commands
 
 from src.cogs.daily import DailyUpdates
+from src.cogs.music import Music
 from src.cogs.roles import Roles
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
@@ -19,7 +20,7 @@ intents = discord.Intents.default()
 intents.members = True
 intents.presences = True
 bot = commands.Bot(intents=intents, command_prefix=COMMAND_OPT)
-for cog in [DailyUpdates, Roles]:
+for cog in [DailyUpdates, Roles, Music]:
     bot.add_cog(cog(bot))
 
 
