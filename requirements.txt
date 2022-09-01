@@ -6,3 +6,4 @@ Pillow
 imgurpython
 psycopg2
 youtube-dl
+google-api-python-client
