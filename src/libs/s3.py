@@ -1,8 +1,4 @@
 import boto3
-import os
-
-AWS_KEY = os.environ["AWS_KEY"]
-AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
 
 s3 = boto3.resource('s3')
 s3_bucket = s3.Bucket("noctrimphotos")
