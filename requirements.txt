@@ -5,3 +5,4 @@ pytz
 Pillow
 imgurpython
 psycopg2
+youtube-dl
