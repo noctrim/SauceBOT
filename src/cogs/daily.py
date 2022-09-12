@@ -8,7 +8,7 @@ import pytz
 
 from .base import CogBase
 from ..libs.apex import generate_crafting_image
-from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos, get_config
+from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos, get_config, get_database, is_match_database
 from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 
@@ -28,6 +28,7 @@ class DailyUpdates(CogBase):
         # Otherwise BOT messages will start 24 hours from online
         self.send_daily_apex_update.start()
         self.send_daily_ow_update.start()
+        self.send_daily_wow_update.start()
         while True:
             if datetime.now(DAILY_MESSAGE_TZ).hour == DAILY_MESSAGE_HOUR:
                 return
@@ -119,3 +120,16 @@ class DailyUpdates(CogBase):
             if not ow_channel:
                 continue
             await self.youtube_update("PlayOverwatch", "ow_last_video", ow_channel)
+
+    # [SECTION] World of Warcraft
+    @tasks.loop(minutes=10)
+    async def send_daily_wow_update(self):
+        """
+        Task to send live WoW updates
+        """
+        if is_match_database("skyfury_queue", "0", update=False):
+            game = discord.Game("Fetch!")
+        else:
+            queue = get_database("skyfury_queue")
+            game = discord.Game(queue)
+        await self.bot.change_presence(status=discord.Status.idle, activity=game)

@@ -72,18 +72,8 @@ def is_match_database(key, val, update=True):
     :param update: flag to disable updating
     :return: bool if val matches
     """
-    resp = DISCORD.get_item(
-        Key={
-            'Id': key
-        }
-    )
-
-    if "Item" in resp:
-        item = resp["Item"]
-    else:
-        item = None
-
-    if item and item['Value'] == val:
+    actual = get_database(key)
+    if actual == val:
         return True
 
     if update:
@@ -93,3 +83,15 @@ def is_match_database(key, val, update=True):
         })
 
     return False
+
+def get_database(key):
+    resp = DISCORD.get_item(
+        Key={
+            'Id': key
+        }
+    )
+    if "Item" in resp:
+        item = resp["Item"]
+    else:
+        item = None
+    return item['Value'] if item else None
