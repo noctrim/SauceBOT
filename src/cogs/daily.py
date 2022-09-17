@@ -19,7 +19,6 @@ DAILY_MESSAGE_TZ = pytz.timezone("US/Pacific")
 
 class DailyUpdates(CogBase):
     # Send Daily Dog Photo To Channel
-    @tasks.loop(hours=24)
     async def send_daily_messages(self):
         """
         Task that loops every 24 hours to send daily messages
@@ -35,6 +34,7 @@ class DailyUpdates(CogBase):
             await asyncio.sleep(60)
         await self.send_daily_photo()
 
+    @tasks.loop(hours=24)
     async def send_daily_photo(self):
         """
         Helper util function to send daily sauce photo
