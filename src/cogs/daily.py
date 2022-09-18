@@ -32,7 +32,7 @@ class DailyUpdates(CogBase):
             if datetime.now(DAILY_MESSAGE_TZ).hour == DAILY_MESSAGE_HOUR:
                 return
             await asyncio.sleep(60)
-        await self.send_daily_photo()
+        self.send_daily_photo.start()
 
     @tasks.loop(hours=24)
     async def send_daily_photo(self):

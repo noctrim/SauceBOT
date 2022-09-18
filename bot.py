@@ -41,7 +41,7 @@ async def on_ready():
 
     await bot.change_presence(status=discord.Status.idle, activity=game)
     cog = bot.get_cog("DailyUpdates")
-    cog.send_daily_messages.start()
+    cog.send_daily_messages()
 
 
 # Send FAQ Guidance
