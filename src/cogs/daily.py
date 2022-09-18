@@ -13,7 +13,7 @@ from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 
 
-DAILY_MESSAGE_HOUR = 11
+DAILY_MESSAGE_HOUR = 10
 DAILY_MESSAGE_TZ = pytz.timezone("US/Pacific")
 
 
