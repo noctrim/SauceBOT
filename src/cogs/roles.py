@@ -9,6 +9,8 @@ from ..libs.timer import Timer
 ACTIVE_STREAMERS = {}
 STREAMING_CHANNEL_NOTIFICATION_DELAY = 60
 
+BASE_ROLE_ID = 967931179296751647
+
 
 class Roles(CogBase):
     """
@@ -38,7 +40,7 @@ class Roles(CogBase):
         member = discord.utils.find(lambda m: m.id == payload.user_id, ctx.guild.members)
 
         # add base role if missing
-        base_role_id = get_config(ctx.guild.id, "baseRole")
+        base_role_id = BASE_ROLE_ID
         if base_role_id:
             base_role = discord.utils.get(ctx.guild.roles, id=base_role_id)
             if base_role not in member.roles:
