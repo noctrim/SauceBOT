@@ -13,7 +13,7 @@ from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 
 
-DAILY_MESSAGE_HOUR = 10
+DAILY_MESSAGE_HOUR = 11
 DAILY_MESSAGE_TZ = pytz.timezone("US/Pacific")
 
 
@@ -30,7 +30,7 @@ class DailyUpdates(CogBase):
         self.send_daily_wow_update.start()
         while True:
             if datetime.now(DAILY_MESSAGE_TZ).hour == DAILY_MESSAGE_HOUR:
-                return
+                break
             await asyncio.sleep(60)
         self.send_daily_photo.start()
 
