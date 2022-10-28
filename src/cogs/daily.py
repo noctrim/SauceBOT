@@ -8,7 +8,8 @@ import pytz
 
 from .base import CogBase
 from ..libs.apex import generate_crafting_image
-from ..libs.database import add_photo_to_table, clear_table, get_all_seen_photos, get_config, get_database, is_match_database
+from ..libs.database import (
+    add_photo_to_table, clear_table, get_all_seen_photos, get_config, get_database, is_match_database)
 from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
 

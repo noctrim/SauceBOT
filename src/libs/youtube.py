@@ -6,7 +6,7 @@ import youtube_dl
 
 from apiclient.discovery import build
 
-from ..libs.database import is_match_database
+from ..libs.database import get_database, update_database
 
 FFMPEG_OPTIONS = {"before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", "options": "-vn"}
 YDL_OPTIONS = {"format": "bestaudio"}
@@ -29,8 +29,16 @@ def check_youtube(channel_id, db_key):
     m = re.search(r, snippet)
     title = m.group(1)
     link = m.group(2)
-    if is_match_database(db_key, title):
+
+    sep = "---"
+    seen_str = get_database(db_key)
+    titles = seen_str.split(sep)
+    if title in titles:
         return None
+    titles.append(title)
+    # only keep last 10
+    titles = titles[-10:]
+    update_database(db_key, sep.join(titles))
     return "https://www.youtube.com{}".format(link)
 
 

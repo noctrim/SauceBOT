@@ -77,14 +77,17 @@ def is_match_database(key, val, update=True):
         return True
 
     if update:
-        DISCORD.put_item(Item={
-            "Id": key,
-            "Value": val
-        })
-
+        update_database(key, val)
     return False
 
+
 def get_database(key):
+    """
+    Gets a value from Discord DB
+
+    :param key: key of item
+    :return: db value
+    """
     resp = DISCORD.get_item(
         Key={
             'Id': key
@@ -95,3 +98,16 @@ def get_database(key):
     else:
         item = None
     return item['Value'] if item else None
+
+
+def update_database(key, value):
+    """
+    Updates a DB key with new value
+
+    :param key: db key
+    :param value: new value
+    """
+    DISCORD.put_item(Item={
+        "Id": key,
+        "Value": value
+    })
