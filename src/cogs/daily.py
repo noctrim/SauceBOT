@@ -68,7 +68,7 @@ class DailyUpdates(CogBase):
         os.remove(local_fp)
 
     @tasks.loop(hours=24)
-    def send_daily_espn_update(self):
+    async def send_daily_espn_update(self):
         if datetime.now(DAILY_MESSAGE_TZ).weekday() == 1:
             filename = generate_matchups_image()
             if filename:
