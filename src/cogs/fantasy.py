@@ -10,10 +10,14 @@ class FantasyFootball(CogBase):
 
     @commands.slash_command(name="total_wins", description="See total wins for all players since any given season.")
     async def total_wins(self, ctx, year):
-        if not year.isnumeric():
+        try:
+            year = int(year)
+        except ValueError:
             await ctx.respond("Invalid input, try a year. Ex: 2022")
             return
-        year = int(year)
+        if year < 2020:
+            await ctx.respond("Data only supports since 2020+ season")
+            return
         embed = discord.Embed(
                 title=f'Wins Since {year} Season',
                 colour=discord.Colour.red()

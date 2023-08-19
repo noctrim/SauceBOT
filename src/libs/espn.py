@@ -1,6 +1,7 @@
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import requests
+import os
 import matplotlib.pyplot as plt
 
 from ..libs.database import get_database
@@ -97,10 +98,15 @@ def generate_wins_bar_graph(starting_year=None):
     data = total_wins_over(starting_year)
     names = list(data.keys())
     values = list(data.values())
-    plt.bar(range(len(data)), values, tick_label=names)
+    plt.bar(names, values)
     for i in range(len(names)):
         plt.text(i,values[i],values[i])
     plt.xticks(rotation=25)
     filename = 'wins_bar.png'
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        pass
     plt.savefig(filename)
+    plt.figure().clear()
     return filename
