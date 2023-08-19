@@ -7,7 +7,7 @@ class FantasyFootball(CogBase):
     # Fantasy Football Cog
 
     @commands.slash_command(name="total_wins", description="See total wins for all players since any given season.")
-    async def total_wins(ctx, year):
+    async def total_wins(self, ctx, year):
         if not year.isnumeric():
             await ctx.respond("Invalid input, try a year. Ex: 2022")
             return
