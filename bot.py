@@ -8,7 +8,6 @@ from src.cogs.music import Music
 from src.cogs.roles import Roles
 from src.cogs.fantasy import FantasyFootball
 
-from src.libs.espn import generate_wins_bar_graph
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 

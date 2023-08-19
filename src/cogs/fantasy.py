@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 
 from .base import CogBase
+from ..libs.libs.espn import generate_wins_bar_graph
+
 
 class FantasyFootball(CogBase):
     # Fantasy Football Cog
