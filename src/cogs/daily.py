@@ -12,6 +12,7 @@ from ..libs.database import (
     add_photo_to_table, clear_table, get_all_seen_photos, get_config, get_database, is_match_database)
 from ..libs.s3 import get_all_relevant_photos, download_file
 from ..libs.youtube import check_youtube
+from ..libs.espn import generate_matchups_image
 
 
 DAILY_MESSAGE_HOUR = 10
@@ -34,6 +35,7 @@ class DailyUpdates(CogBase):
                 break
             await asyncio.sleep(60)
         self.send_daily_photo.start()
+        self.send_daily_espn_update.start()
 
     @tasks.loop(hours=24)
     async def send_daily_photo(self):
@@ -64,6 +66,21 @@ class DailyUpdates(CogBase):
                 "Daily Dose of Sauce! Enjoy This Pic Of Me, My Friends, And/Or Their Humans! Have A Great Day",
                 file=discord.File(local_fp))
         os.remove(local_fp)
+
+    @tasks.loop(hours=24)
+    def send_daily_espn_update(self):
+        if datetime.now(DAILY_MESSAGE_TZ).weekday() == 1:
+            filename = generate_matchups_image()
+            if filename:
+                channel = bot.get_channel(1142584475256111155)
+                embed = discord.Embed(
+                        title=f'Main Events of the Week',
+                        colour=discord.Colour.red()
+                        )
+                file_ = discord.File(filename)
+                embed.set_image(url="attachment://{}".format(filename))
+                await ctx.respond(file=file_, embed=embed)
+                os.remove(filename)
 
     async def youtube_update(self, youtube_channel, db_key, send_channel, youtube_display=None):
         """
