@@ -6,6 +6,7 @@ from discord.ext import commands
 from src.cogs.daily import DailyUpdates
 from src.cogs.music import Music
 from src.cogs.roles import Roles
+from src.cogs.fantasy import FantasyFootball
 
 from src.libs.espn import generate_wins_bar_graph
 
@@ -22,7 +23,7 @@ intents = discord.Intents.default()
 intents.members = True
 intents.presences = True
 bot = commands.Bot(intents=intents, command_prefix=COMMAND_OPT)
-for cog in [DailyUpdates, Roles, Music]:
+for cog in [DailyUpdates, Roles, FantasyFootball]:
     bot.add_cog(cog(bot))
 
 
@@ -66,23 +67,6 @@ async def on_member_join(member):
     embed.set_thumbnail(url=member.avatar_url)
     await welcome_channel.send(msg, embed=embed)
 
-
-@bot.slash_command(name="total_wins", guild_ids=[HOME_GUILD_ID])
-async def total_wins(ctx, year):
-    if not year.isnumeric():
-        await ctx.respond("Invalid input, try a year. Ex: 2022")
-        return
-    year = int(year)
-    channel = bot.get_channel(1142584475256111155)
-    embed = discord.Embed(
-            title=f'Wins Since {year} Season',
-            colour=discord.Colour.red()
-            )
-    filename = generate_wins_bar_graph(year)
-    file_ = discord.File(filename)
-    embed.set_image(url="attachment://{}".format(filename))
-    await ctx.respond(file=file_, embed=embed)
-    os.remove(filename)
 
 # Start BOT
 bot.run(DISCORD_TOKEN)
