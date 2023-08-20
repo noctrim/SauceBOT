@@ -70,7 +70,7 @@ class DailyUpdates(CogBase):
     @tasks.loop(hours=24)
     async def send_daily_espn_update(self):
         if datetime.now(DAILY_MESSAGE_TZ).weekday() == 1:
-            filename = generate_matchups_image(2022, 1)
+            filename = generate_matchups_image()
             if filename:
                 channel = self.bot.get_channel(1142584475256111155)
                 embed = discord.Embed(
