@@ -70,16 +70,16 @@ class DailyUpdates(CogBase):
     @tasks.loop(hours=24)
     async def send_daily_espn_update(self):
         if datetime.now(DAILY_MESSAGE_TZ).weekday() == 1:
-            filename = generate_matchups_image()
+            filename = generate_matchups_image(2022, 1)
             if filename:
-                channel = bot.get_channel(1142584475256111155)
+                channel = self.bot.get_channel(1142584475256111155)
                 embed = discord.Embed(
                         title=f'Main Events of the Week',
                         colour=discord.Colour.red()
                         )
                 file_ = discord.File(filename)
                 embed.set_image(url="attachment://{}".format(filename))
-                await ctx.respond(file=file_, embed=embed)
+                await channel.send(file=file_, embed=embed)
                 os.remove(filename)
 
     async def youtube_update(self, youtube_channel, db_key, send_channel, youtube_display=None):
