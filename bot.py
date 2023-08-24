@@ -63,7 +63,7 @@ async def on_member_join(member):
         member.mention, readme_channel.mention)
     embed = discord.Embed(title="{0} just joined the server!".format(
         member.display_name), color=0x03ecfc)
-    embed.set_thumbnail(url=member.avatar_url)
+    embed.set_thumbnail(url=member.avatar)
     await welcome_channel.send(msg, embed=embed)
 
 
