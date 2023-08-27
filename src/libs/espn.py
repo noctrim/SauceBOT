@@ -64,6 +64,7 @@ def total_wins_over(starting_year=None):
     for year in range(starting_year, current_year + 1):
         team_resp = requests.get(GET_LEAGUE_ENDPOINT.format(year, LEAGUE_ID), cookies=COOKIES)
         team_data = team_resp.json()
+
         teams = team_data['teams']
         members = team_data['members']
 
@@ -71,7 +72,8 @@ def total_wins_over(starting_year=None):
         for team in teams:
             for member in members:
                 if member['id'] in team['owners']:
-                    owner = OWNER_MAPPING.get(member['id'])
+                    owner = OWNER_MAPPING.get(member['id'], 'idk')
+
                     team_mapping[team['id']] = owner
                     if owner not in total_wins:
                         total_wins[owner] = 0
@@ -84,10 +86,10 @@ def total_wins_over(starting_year=None):
         history_data = history_resp.json()
 
         for matchup in history_data['schedule']:
-            winner = matchup['winner']
-            if winner == "UNDECIDED":
+            winner = matchup['winner'].lower()
+            if winner in ["undecided", 'tie']:
                 continue
-            winning_id = matchup[winner.lower()]['teamId']
+            winning_id = matchup[winner]['teamId']
             winning_owner = team_mapping[winning_id]
             prev_wins = total_wins[winning_owner]
             total_wins[winning_owner] = prev_wins + 1
