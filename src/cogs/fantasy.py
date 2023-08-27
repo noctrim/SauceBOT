@@ -16,8 +16,8 @@ class FantasyFootball(CogBase):
         except ValueError:
             await ctx.respond("Invalid input, try a year. Ex: 2022")
             return
-        if year < 2020:
-            await ctx.respond("Data only supports since 2020+ season")
+        if year < 2018:
+            await ctx.respond("Data only supports since 2018+ season")
             return
         embed = discord.Embed(
                 title=f'Wins Since {year} Season',
