@@ -34,6 +34,7 @@ def get_current_matchups(year=None, week_id=None):
             matchups.append((team_mapping[matchup['home']['teamId']], team_mapping[matchup['away']['teamId']]))
     return matchups
 
+
 def generate_matchups_image(year=None, week_id=None):
     matchups = get_current_matchups(year, week_id)
     if not matchups:
@@ -112,3 +113,65 @@ def generate_wins_bar_graph(starting_year=None):
     plt.savefig(filename)
     plt.figure().clear()
     return filename
+
+
+def get_record_players(first_player, second_player, starting_year=None):
+    current_year = datetime.today().year
+    starting_year = starting_year or current_year
+    total_wins = {}
+    first_player = first_player.lower().strip()
+    second_player = second_player.lower().strip()
+    for year in range(starting_year, current_year + 1):
+        team_resp = requests.get(GET_LEAGUE_ENDPOINT.format(year, LEAGUE_ID), cookies=COOKIES)
+        team_data = team_resp.json()
+
+        teams = team_data['teams']
+        members = team_data['members']
+
+        team_mapping = {}
+        first_player_id = None
+        second_player_id = None
+        for team in teams:
+            for member in members:
+                if member['id'] in team['owners']:
+                    owner = OWNER_MAPPING.get(member['id'], 'idk')
+                    team_mapping[team['id']] = owner
+                    if owner.lower() == first_player:
+                        first_player_id = team['id']
+                    elif owner.lower() == second_player:
+                        second_player_id = team['id']
+                    break
+            else:
+                continue
+
+        if None in [first_player_id, second_player_id]:
+            continue
+        if team_mapping[first_player_id] not in total_wins:
+            total_wins[team_mapping[first_player_id]] = 0, 0
+        if team_mapping[second_player_id] not in total_wins:
+            total_wins[team_mapping[second_player_id]] = 0, 0
+
+        settings_resp = requests.get(GET_LEAGUE_ENDPOINT.format(year, LEAGUE_ID), params={'view': 'mSettings'}, cookies=COOKIES)
+        settings_data = settings_resp.json()
+        playoff_week = settings_data['settings']['scheduleSettings']['matchupPeriodCount']
+
+        history_resp = requests.get(
+            GET_LEAGUE_ENDPOINT.format(year, LEAGUE_ID), params={'view': "mMatchup"}, cookies=COOKIES)
+        history_data = history_resp.json()
+        for matchup in history_data['schedule']:
+            winner = matchup['winner'].lower()
+            if winner in ["undecided", 'tie']:
+                continue
+
+            away = matchup['away']['teamId']
+            home = matchup['home']['teamId']
+            owners = [away, home]
+
+            if first_player_id in owners and second_player_id in owners:
+                winning_id = matchup[winner]['teamId']
+                total, playoff = total_wins[team_mapping[winning_id]]
+                total += 1
+                if matchup['matchupPeriodId'] >= playoff_week:
+                    playoff += 1
+                total_wins[team_mapping[winning_id]] = total, playoff
+    return total_wins
